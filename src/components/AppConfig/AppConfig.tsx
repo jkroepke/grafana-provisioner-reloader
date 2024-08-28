@@ -13,10 +13,6 @@ export type AppPluginSettings = {
 type State = {
   // The URL to reach our custom API.
   apiUrl: string;
-  // Tells us if the API key secret is set.
-  isApiKeySet: boolean;
-  // A secret key for our custom API.
-  apiKey: string;
 };
 
 export interface AppConfigProps extends PluginConfigPageProps<AppPluginMeta<AppPluginSettings>> {}
@@ -26,17 +22,13 @@ export const AppConfig = ({ plugin }: AppConfigProps) => {
   const { enabled, pinned, jsonData, secureJsonFields } = plugin.meta;
   const [state, setState] = useState<State>({
     apiUrl: jsonData?.apiUrl || '',
-    apiKey: '',
-    isApiKeySet: Boolean(secureJsonFields?.apiKey),
   });
 
-  const isSubmitDisabled = Boolean(!state.apiUrl || (!state.isApiKeySet && !state.apiKey));
+  const isSubmitDisabled = Boolean(!state.apiUrl);
 
   const onResetApiKey = () =>
     setState({
       ...state,
-      apiKey: '',
-      isApiKeySet: false,
     });
 
   const onChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -59,31 +51,13 @@ export const AppConfig = ({ plugin }: AppConfigProps) => {
       },
       // This cannot be queried later by the frontend.
       // We don't want to override it in case it was set previously and left untouched now.
-      secureJsonData: state.isApiKeySet
-        ? undefined
-        : {
-            apiKey: state.apiKey,
-          },
+      secureJsonData: undefined,
     });
   };
 
   return (
     <form onSubmit={onSubmit}>
       <FieldSet label="API Settings">
-        <Field label="API Key" description="A secret key for authenticating to our custom API">
-          <SecretInput
-            width={60}
-            id="config-api-key"
-            data-testid={testIds.appConfig.apiKey}
-            name="apiKey"
-            value={state.apiKey}
-            isConfigured={state.isApiKeySet}
-            placeholder={'Your secret API key'}
-            onChange={onChange}
-            onReset={onResetApiKey}
-          />
-        </Field>
-
         <Field label="API Url" description="" className={s.marginTop}>
           <Input
             width={60}

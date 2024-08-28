@@ -31,7 +31,6 @@ describe('Components/AppConfig', () => {
     render(<AppConfig plugin={plugin} query={props.query} />);
 
     expect(screen.queryByRole('group', { name: /api settings/i })).toBeInTheDocument();
-    expect(screen.queryByTestId(testIds.appConfig.apiKey)).toBeInTheDocument();
     expect(screen.queryByTestId(testIds.appConfig.apiUrl)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /save api settings/i })).toBeInTheDocument();
   });

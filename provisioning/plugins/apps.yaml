@@ -6,6 +6,10 @@ apps:
     disabled: false
     jsonData:
       grafanaURL: 'http://localhost:3000'
-      fsWatcher:
-        - /tmp/
-        - /opt/
+      accesscontrolFileWatcher: []
+      alertingFileWatcher: []
+      dashboardsFileWatcher:
+        - /etc/grafana/provisioning/dashboards/
+      datasourceFileWatcher: []
+      pluginsFileWatcher:
+        - /etc/grafana/provisioning/plugins/

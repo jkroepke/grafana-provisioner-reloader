@@ -6,15 +6,14 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
-	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/httpclient"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/resource/httpadapter"
+	"github.com/jkroepke/provisioner-reloader/pkg/plugin/observer"
+	"github.com/jkroepke/provisioner-reloader/pkg/plugin/transport"
 )
 
 // Make sure App implements required interfaces. This is important to do
@@ -31,23 +30,18 @@ var (
 type App struct {
 	backend.CallResourceHandler
 
-	httpClient     *http.Client
-	disposeCh      chan struct{}
-	logger         log.Logger
-	healthStatus   backend.HealthStatus
-	healthStatusMu sync.RWMutex
-	saToken        string
-	grafanaURL     string
-}
-
-var healthStatusMessage = map[backend.HealthStatus]string{
-	backend.HealthStatusOk:    "ok",
-	backend.HealthStatusError: "error",
+	logger log.Logger
+	cancel context.CancelFunc
 }
 
 type Config struct {
-	FSWatcher  []string `json:"fsWatcher"`
-	GrafanaURL string   `json:"grafanaURL"`
+	GrafanaURL string `json:"grafanaURL"`
+
+	AccesscontrolFileWatcher []string `json:"accesscontrolFileWatcher"`
+	AlertingFileWatcher      []string `json:"alertingFileWatcher"`
+	DashboardsFileWatcher    []string `json:"dashboardsFileWatcher"`
+	DatasourcesFileWatcher   []string `json:"datasourcesFileWatcher"`
+	PluginsFileWatcher       []string `json:"pluginsFileWatcher"`
 }
 
 // NewApp creates a new example *App instance.
@@ -65,21 +59,19 @@ func NewApp(ctx context.Context, settings backend.AppInstanceSettings) (instance
 	app.CallResourceHandler = httpadapter.New(mux)
 
 	app.logger = log.DefaultLogger.FromContext(ctx)
-	app.disposeCh = make(chan struct{})
 
 	cfg := backend.GrafanaConfigFromContext(ctx)
-
-	app.saToken, err = cfg.PluginAppClientSecret()
-	if err != nil {
-		app.logger.Error("failed to get service account token", "error", err)
-
-		return nil, fmt.Errorf("failed to get service account token: %w", err)
-	}
-
 	if !cfg.FeatureToggles().IsEnabled("externalServiceAccounts") {
 		app.logger.Error("external service accounts feature is not enabled")
 
 		return nil, fmt.Errorf("external service accounts feature is not enabled")
+	}
+
+	saToken, err := cfg.PluginAppClientSecret()
+	if err != nil {
+		app.logger.Error("failed to get service account token", "error", err)
+
+		return nil, fmt.Errorf("failed to get service account token: %w", err)
 	}
 
 	var config Config
@@ -95,33 +87,40 @@ func NewApp(ctx context.Context, settings backend.AppInstanceSettings) (instance
 		return nil, fmt.Errorf("http client options: %w", err)
 	}
 
-	app.httpClient, err = httpclient.New(opts)
+	httpClient, err := httpclient.New(opts)
 	if err != nil {
 		return nil, fmt.Errorf("httpclient new: %w", err)
 	}
 
-	app.grafanaURL = "http://localhost:3000"
+	httpClient.Transport = transport.NewBearerTokenTransport(saToken, httpClient.Transport)
 
-	if config.GrafanaURL == "" {
-		app.grafanaURL = strings.TrimSuffix(config.GrafanaURL, "/")
+	grafanaURL := "http://localhost:3000"
+
+	if config.GrafanaURL != "" {
+		grafanaURL = strings.TrimSuffix(config.GrafanaURL, "/")
 	}
 
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		app.logger.Error("failed to create watcher", "error", err)
+	var ob *observer.Observer
 
-		return nil, fmt.Errorf("failed to create watcher: %w", err)
-	}
+	ctx = context.Background()
+	ctx, app.cancel = context.WithCancel(ctx)
 
-	for _, path := range config.FSWatcher {
-		if err := watcher.Add(path); err != nil {
-			app.logger.Error("failed to add path to watcher", "path", path, "error", err)
+	for name, filePaths := range map[string][]string{
+		"dashboards":     config.DashboardsFileWatcher,
+		"datasources":    config.DatasourcesFileWatcher,
+		"plugins":        config.PluginsFileWatcher,
+		"access-control": config.AccesscontrolFileWatcher,
+		"alerting":       config.AlertingFileWatcher,
+	} {
+		if len(filePaths) > 0 {
+			ob, err = observer.New(app.logger, httpClient, "accesscontrol", fmt.Sprintf("%s/api/admin/provisioning/%s/reload", grafanaURL, name), filePaths)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create observer: %w", err)
+			}
 
-			return nil, fmt.Errorf("failed to add path to watcher: %w", err)
+			go ob.Run(ctx)
 		}
 	}
-
-	go app.run(watcher)
 
 	return &app, nil
 }
@@ -129,31 +128,13 @@ func NewApp(ctx context.Context, settings backend.AppInstanceSettings) (instance
 // Dispose here tells plugin SDK that plugin wants to clean up resources when a new instance
 // created.
 func (a *App) Dispose() {
-	if _, ok := <-a.disposeCh; !ok {
-		// The dispose channel is already closed, so the goroutine has stopped.
-		return
-	}
-
-	// Signal the running goroutine to stop.
-	a.disposeCh <- struct{}{}
-
-	// Wait for the goroutine to stop.
-	select {
-	case <-a.disposeCh:
-		// The goroutine has stopped.
-	case <-time.After(5 * time.Second):
-		// The goroutine has not stopped after 5 seconds. Log an error.
-		a.logger.Error("failed to stop the plugin")
-	}
+	a.cancel()
 }
 
 // CheckHealth handles health checks sent from Grafana to the plugin.
 func (a *App) CheckHealth(_ context.Context, _ *backend.CheckHealthRequest) (*backend.CheckHealthResult, error) {
-	a.healthStatusMu.RLock()
-	defer a.healthStatusMu.RUnlock()
-
 	return &backend.CheckHealthResult{
-		Status:  a.healthStatus,
-		Message: healthStatusMessage[a.healthStatus],
+		Status:  backend.HealthStatusOk,
+		Message: "ok",
 	}, nil
 }

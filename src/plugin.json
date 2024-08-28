@@ -1,0 +1,49 @@
+{
+  "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
+  "type": "app",
+  "name": "Provisioner-Reloader",
+  "id": "jkroepke-provisionerreloader-app",
+  "backend": true,
+  "executable": "gpx_provisioner_reloader",
+  "info": {
+    "keywords": ["app"],
+    "description": "",
+    "author": {
+      "name": "Jan-Otto Kröpke",
+      "email": "mail@jkroepke.de",
+      "url": "https://github.com/jkroepke"
+    },
+    "logos": {
+      "small": "img/logo.svg",
+      "large": "img/logo.svg"
+    },
+    "links": [
+      {
+        "name": "GitHub",
+        "url": "https://github.com/jkroepke/grafana-pdf-report-app"
+      }
+    ],
+    "screenshots": [],
+    "version": "%VERSION%",
+    "updated": "%TODAY%"
+  },
+  "includes": [
+    {
+      "type": "page",
+      "icon": "cog",
+      "name": "Configuration",
+      "path": "/plugins/%PLUGIN_ID%",
+      "role": "Admin",
+      "addToNav": true
+    }
+  ],
+  "iam": {
+    "permissions": [
+      { "action": "provisioning:reload", "scope": "provisioners:*" }
+    ]
+  },
+  "dependencies": {
+    "grafanaDependency": ">=10.4.0",
+    "plugins": []
+  }
+}

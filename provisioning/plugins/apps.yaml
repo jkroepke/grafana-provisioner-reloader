@@ -1,0 +1,11 @@
+apiVersion: 1
+
+apps:
+  - type: 'jkroepke-provisionerreloader-app'
+    org_id: 1
+    disabled: false
+    jsonData:
+      grafanaURL: 'http://localhost:3000'
+      fsWatcher:
+        - /tmp/
+        - /opt/

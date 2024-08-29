@@ -23,8 +23,8 @@ services:
       - .:/root/jkroepke-provisionerreloader-app
 
     healthcheck:
-      test: curl --fail http://localhost:3000/api/plugins/jkroepke-provisionerreloader-app/resources/healthz || exit 1
-      interval: 60s
+      test: curl --fail http://localhost:3000/api/plugins/jkroepke-provisionerreloader-app/health || exit 1
+      interval: 30s
       retries: 5
       start_period: 20s
       timeout: 10s

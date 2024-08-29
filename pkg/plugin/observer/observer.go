@@ -2,9 +2,11 @@ package observer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -31,6 +33,11 @@ func New(logger log.Logger, httpClient *http.Client, name, endpoint string, path
 
 	for _, path := range paths {
 		if err = watcher.Add(path); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				logger.Warn("failed to add path to watcher", "path", path, "err", err)
+				continue
+			}
+
 			return nil, fmt.Errorf("failed to add path %q to watcher: %w", path, err)
 		}
 	}

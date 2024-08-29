@@ -54,10 +54,7 @@ func NewApp(ctx context.Context, settings backend.AppInstanceSettings) (instance
 	// Use a httpadapter (provided by the SDK) for resource calls. This allows us
 	// to use a *http.ServeMux for resource calls, so we can map multiple routes
 	// to CallResource without having to implement extra logic.
-	mux := http.NewServeMux()
-	app.registerRoutes(mux)
-	app.CallResourceHandler = httpadapter.New(mux)
-
+	app.CallResourceHandler = httpadapter.New(http.NewServeMux())
 	app.logger = log.DefaultLogger.FromContext(ctx)
 
 	cfg := backend.GrafanaConfigFromContext(ctx)
@@ -113,7 +110,7 @@ func NewApp(ctx context.Context, settings backend.AppInstanceSettings) (instance
 		"alerting":       config.AlertingFileWatcher,
 	} {
 		if len(filePaths) > 0 {
-			ob, err = observer.New(app.logger, httpClient, "accesscontrol", fmt.Sprintf("%s/api/admin/provisioning/%s/reload", grafanaURL, name), filePaths)
+			ob, err = observer.New(app.logger, httpClient, name, fmt.Sprintf("%s/api/admin/provisioning/%s/reload", grafanaURL, name), filePaths)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create observer: %w", err)
 			}

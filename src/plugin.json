@@ -4,6 +4,8 @@
   "name": "Provisioner-Reloader",
   "id": "jkroepke-provisionerreloader-app",
   "backend": true,
+  "category": "other",
+  "preload": true,
   "executable": "gpx_provisioner_reloader",
   "info": {
     "keywords": ["app"],

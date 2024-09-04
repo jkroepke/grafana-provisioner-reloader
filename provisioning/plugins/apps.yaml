@@ -1,0 +1,15 @@
+apiVersion: 1
+
+apps:
+  - type: 'jkroepke-provisionerreloader-app'
+    org_id: 1
+    disabled: false
+    jsonData:
+      grafanaURL: 'http://localhost:3000'
+      accesscontrolFileWatcher: []
+      alertingFileWatcher: []
+      dashboardsFileWatcher:
+        - /etc/grafana/provisioning/dashboards/
+      datasourceFileWatcher: []
+      pluginsFileWatcher:
+        - /etc/grafana/provisioning/plugins/

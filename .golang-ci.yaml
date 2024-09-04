@@ -1,0 +1,43 @@
+linters:
+  enable-all: true
+  disable:
+    - depguard
+    - exhaustruct
+    - gomnd
+    - funlen
+    - ireturn
+    - err113
+    - execinquery
+    - mnd
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - lll
+        - gocognit
+        - cyclop
+        - wrapcheck
+        - maintidx
+        - dogsled
+        - contextcheck
+        - dupword
+        - dupl
+        - funlen
+        - gocyclo
+
+linters-settings:
+  varnamelen:
+    ignore-names:
+      - tc
+    ignore-decls:
+      - i int
+      - a ...any
+      - err error
+      - ok bool
+      - id string
+      - w http.ResponseWriter
+      - rt http.RoundTripper
+      - r *http.Request
+  lll:
+    line-length: 160

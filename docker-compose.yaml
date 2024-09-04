@@ -1,0 +1,41 @@
+services:
+  grafana:
+    user: root
+    container_name: 'jkroepke-provisionerreloader-app'
+
+    build:
+      context: ./.config
+      args:
+        grafana_image: ${GRAFANA_IMAGE:-grafana-oss}
+        grafana_version: ${GRAFANA_VERSION:-11.2.0}
+        development: ${DEVELOPMENT:-false}
+    ports:
+      - 3000:3000/tcp
+      - 2345:2345/tcp # delve
+    security_opt:
+      - 'apparmor:unconfined'
+      - 'seccomp:unconfined'
+    cap_add:
+      - SYS_PTRACE
+    volumes:
+      - ./dist:/var/lib/grafana/plugins/jkroepke-provisionerreloader-app
+      - ./provisioning:/etc/grafana/provisioning
+      - .:/root/jkroepke-provisionerreloader-app
+
+    healthcheck:
+      test: curl --fail http://localhost:3000/api/plugins/jkroepke-provisionerreloader-app/health || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+    environment:
+      NODE_ENV: development
+      GF_LOG_FILTERS: plugin.jkroepke-provisionerreloader-app:debug
+      GF_LOG_LEVEL: info
+      GF_DATAPROXY_LOGGING: 1
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: jkroepke-provisionerreloader-app
+      GF_FEATURE_TOGGLES_ENABLE: ${GF_FEATURE_TOGGLES_ENABLE:-externalServiceAccounts}
+
+      # turn off alerting to avoid log spam
+      GF_ALERTING_ENABLED: false
+      GF_UNIFIED_ALERTING_ENABLED: false
